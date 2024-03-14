@@ -2,7 +2,7 @@ import numpy as np
 from collections import defaultdict
 import torch
 import json
-from data_collection import map_path_to_articleID
+from G11_code.data_collection import map_path_to_articleID
 
 def log10_tf(x):
     try:

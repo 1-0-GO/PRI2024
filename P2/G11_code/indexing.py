@@ -7,7 +7,6 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer 
 from collections import Counter, defaultdict
 from tabulate import tabulate
-from transformers import BertTokenizer, BertModel
 from textblob import TextBlob
 
 class TermFrequencies: 

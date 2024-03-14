@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import statistics
-from helper_functions import flatten
+from G11_code.data_collection import flatten
 
 def get_accuracy(num_sents, extracted_indices, relevant_indices):
     extracted_indices = set(extracted_indices)
