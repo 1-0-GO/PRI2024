@@ -128,11 +128,11 @@ a set consisting of stop_words to ignore
 @output a triple consisting of the length in characters of the sentence, the number of terms in the sentence and
 a list of terms and noun phrases appearing in the sentence (with repeated terms) 
 '''
-def preprocess(sentence: str, tokenizer: nltk.tokenize.api.TokenizerI, wnl: WordNetLemmatizer, stop_words=set):
+def preprocess(sentence: str, tokenizer: nltk.tokenize.api.TokenizerI, lemmatizer, stop_words=set):
     sent_out = list()
     tokenized_sentence = tokenizer.tokenize(sentence.lower())
     for term in tokenized_sentence:
-        lem_term = wnl.lemmatize(term)
+        lem_term = lemmatizer.lemmatize(term)
         if lem_term not in stop_words:      
             sent_out.append(lem_term)
     blobbed_sentence = TextBlob(sentence)

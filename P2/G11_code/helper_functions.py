@@ -69,15 +69,12 @@ def json_dump(content, path):
     with open(path, 'w') as f: 
         json.dump(content, f, indent=4)
 
-def summary_compute(categorized_set_of_articles, summarization_function):
+def summary_compute(categorized_set_of_articles, summarization_function, path_to_articleID):
     all_scores = list()
     for category_id, category in enumerate(categorized_set_of_articles): 
         all_scores.append([])
         for cat_path in category: 
-            article_id = map_path_to_articleID(cat_path)
-            try:
-                article_score = summarization_function(article_id)
-            except TypeError:
-                continue
+            article_id = path_to_articleID(cat_path)
+            article_score = summarization_function(article_id)
             all_scores[-1].append(article_score)
     return all_scores

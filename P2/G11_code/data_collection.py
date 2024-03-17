@@ -88,7 +88,9 @@ def get_summary_sentence_indices(articles: list, summaries: list) -> list:
     return categorized_summary_indices, faulty_summaries
                     
 def remove_entries(categorized_list: list, faulty_summary_ids: list):
-    return [content for i, cat_contents in enumerate(categorized_list) for j, content in enumerate(cat_contents) if (i,j) not in faulty_summary_ids]
+    def remove_entries_by_category(category_contents, category_id):
+        return [content for article_id, content in enumerate(category_contents) if (category_id, article_id) not in faulty_summary_ids]
+    return [remove_entries_by_category(contents, category_id) for category_id, contents in enumerate(categorized_list)]
 
 def map_path_to_articleID(path, article_file_paths):
     dict_path_to_articleID = {path:i for i, path in enumerate(article_file_paths)}
