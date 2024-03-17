@@ -2,7 +2,6 @@ import numpy as np
 from collections import defaultdict
 import torch
 import json
-from G11_code.data_collection import map_path_to_articleID
 
 def log10_tf(x):
     try:
@@ -33,9 +32,10 @@ def compute_similarities_between_sentences(info: list, N: int, num_sentences: in
         log10_tfs = np.zeros(num_sentences)
         for sent_number, tf_s_t in tf_per_sentence:
             log10_tfs[sent_number] = log10_tf(tf_s_t)
-        scores_for_term = np.log10(N/df_t) * np.outer(log10_tfs, log10_tfs)
+        idf_term = np.log10(N/df_t)
+        scores_for_term = idf_term * np.outer(log10_tfs, log10_tfs)
         similarity_matrix += scores_for_term
-        sq_norm_sentence += log10_tfs**2
+        sq_norm_sentence += idf_term * log10_tfs**2
     norm_sentence = np.sqrt(sq_norm_sentence)
     normalization = np.outer(norm_sentence, norm_sentence)
     return similarity_matrix / normalization
@@ -46,24 +46,26 @@ def sort_by_value(d: dict, max_elements: int, reverse=False) -> dict:
 def sort_by_key(d: dict) -> dict: 
     return dict(sorted(d.items()))
 
-def get_embedding(sentence: str, model, tokenizer, device, max_length=512) -> torch.tensor: 
-    encoded_input = tokenizer(sentence, return_tensors='pt', truncation=True, max_length=max_length)
-    encoded_input.to(device)
+def get_embeddings(sentences: list, tokenizer, model, device) -> np.array: 
+    # Tokenization    
+    tokenized = [tokenizer.encode(sent, add_special_tokens=True) for sent in sentences]  
+    # Padding
+    max_len = 0
+    for i in tokenized:
+        if len(i) > max_len:
+            max_len = len(i)
+    padded = np.array([i + [0]*(max_len-len(i)) for i in tokenized])
+    # Masking
+    attention_mask = np.where(padded != 0, 1, 0)
+    # Running the model
+    input_ids = torch.tensor(padded, device=device)
+    attention_mask = torch.tensor(attention_mask, device=device)
     with torch.no_grad():
-        output = model(**encoded_input)
-    embedding = output["pooler_output"].squeeze()
-    # mean pooled embedding might be better
-    # mean_pooled_embedding = last_hidden_states.mean(axis=1)
-    return embedding
+        outputs = model(input_ids, attention_mask=attention_mask)
+    # Get for all sentences (:), the CLS (0), from all hidden unit outputs (:) in the last hidden state
+    features = outputs['last_hidden_state'][:,0,:].numpy()
+    return features
 
-def get_embeddings(sentences: list, model, tokenizer, device, max_length=512) -> list: 
-    encoded_input = tokenizer(sentences, return_tensors='pt', truncation=True, padding=True, max_length=max_length)
-    encoded_input.to(device)
-    output = model(**encoded_input)
-    embedding = output["pooler_output"].squeeze()
-    # mean pooled embedding might be better
-    # mean_pooled_embedding = last_hidden_states.mean(axis=1)
-    return embedding
 
 def json_dump(content, path):
     with open(path, 'w') as f: 
