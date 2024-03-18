@@ -2,6 +2,10 @@ import numpy as np
 from collections import defaultdict
 import torch
 import json
+import nltk
+import pickle
+import os
+from tqdm import tqdm
 
 def log10_tf(x):
     try:
@@ -47,23 +51,28 @@ def sort_by_key(d: dict) -> dict:
     return dict(sorted(d.items()))
 
 def get_embeddings(sentences: list, tokenizer, model, device) -> np.array: 
-    # Tokenization    
-    tokenized = [tokenizer.encode(sent, add_special_tokens=True) for sent in sentences]  
-    # Padding
-    max_len = 0
-    for i in tokenized:
-        if len(i) > max_len:
-            max_len = len(i)
-    padded = np.array([i + [0]*(max_len-len(i)) for i in tokenized])
-    # Masking
-    attention_mask = np.where(padded != 0, 1, 0)
-    # Running the model
-    input_ids = torch.tensor(padded, device=device)
-    attention_mask = torch.tensor(attention_mask, device=device)
+    # runs much faster on gpu (10x)
+    encoded_input = tokenizer(sentences, return_tensors='pt', padding=True, truncation=True).to(device)
     with torch.no_grad():
-        outputs = model(input_ids, attention_mask=attention_mask)
+        outputs = model(**encoded_input)
+    
+    # Tokenization    
+    #tokenized = [tokenizer.encode(sent, add_special_tokens=True) for sent in sentences]  
+    # Padding
+    #max_len = 0
+    #for i in tokenized:
+    #    if len(i) > max_len:
+    #        max_len = len(i)
+    #padded = np.array([i + [0]*(max_len-len(i)) for i in tokenized])
+    # Masking
+    #attention_mask = np.where(padded != 0, 1, 0)
+    # Running the model
+    #input_ids = torch.tensor(padded, device=device)
+    #attention_mask = torch.tensor(attention_mask, device=device)
+    #with torch.no_grad():
+    #    outputs = model(input_ids, attention_mask=attention_mask)
     # Get for all sentences (:), the CLS (0), from all hidden unit outputs (:) in the last hidden state
-    features = outputs['last_hidden_state'][:,0,:].numpy()
+    features = (outputs['last_hidden_state'][:,0,:]).cpu().numpy()
     return features
 
 
@@ -80,3 +89,27 @@ def summary_compute(categorized_set_of_articles, summarization_function, path_to
             article_score = summarization_function(article_id)
             all_scores[-1].append(article_score)
     return all_scores
+
+def save_embeddings(D: list, tokenizer, model, device, path: str): 
+    sentence_embeddings = list()
+    document_embeddings = list()
+    print(len(D))
+    for d in tqdm(range(0, len(D))): 
+        document = D[d]
+        sentences = nltk.sent_tokenize(document)
+        sentence_embeddings.append(get_embeddings(sentences, tokenizer, model, device))
+        document_embeddings.append(get_embeddings(document, tokenizer, model, device))
+    
+    sentence_embeddings_path = os.path.join(path, 'sentence_embeddings.pkl')
+    with open(sentence_embeddings_path, 'wb') as f: 
+        pickle.dump(sentence_embeddings, f)
+    
+    document_embeddings_path = os.path.join(path, 'document_embeddings.pkl')
+    with open(document_embeddings_path, 'wb') as f: 
+        pickle.dump(document_embeddings, f)
+
+def load_embeddings(path: str): 
+    with open(path, 'rb') as f:    
+        embeddings = pickle.load(f)
+    return embeddings
+    
