@@ -25,7 +25,7 @@ def read_files(article_path, summary_path):
     article_file_paths = []
     summary_file_paths = []
     category_names = list()
-    for folder in os.listdir(article_path):
+    for folder in sorted(os.listdir(article_path)):
         category_names.append(folder)
         article_category_path = os.path.join(article_path, folder)
         summary_category_path = os.path.join(summary_path, folder)
@@ -33,7 +33,7 @@ def read_files(article_path, summary_path):
         summaries.append([])
         article_file_paths.append([])
         summary_file_paths.append([])
-        for file in os.listdir(article_category_path):
+        for file in sorted(os.listdir(article_category_path)):
             article_file_path = os.path.join(article_category_path, file)
             summary_file_path = os.path.join(summary_category_path, file)
             article_file_paths[-1].append(article_file_path)
