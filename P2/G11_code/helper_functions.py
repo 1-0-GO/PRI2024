@@ -73,15 +73,17 @@ def summary_compute(categorized_set_of_articles, summarization_function, path_to
             all_scores[-1].append(article_score)
     return all_scores
 
-def save_embeddings(D: list, tokenizer, model, device, path: str): 
+def save_embeddings(articles_by_cat: list, tokenizer, model, device, path: str): 
     sentence_embeddings = list()
     document_embeddings = list()
-    print(len(D))
-    for d in tqdm(range(0, len(D))): 
-        document = D[d]
-        sentences = nltk.sent_tokenize(document)
-        sentence_embeddings.append(get_embeddings(sentences, tokenizer, model, device))
-        document_embeddings.append(get_embeddings(document, tokenizer, model, device))
+    for cat_id, cat in enumerate(articles_by_cat): 
+        sentence_embeddings.append([])
+        document_embeddings.append([])
+        for d_id in tqdm(range(0, len(cat))): 
+            document = articles_by_cat[cat_id][d_id]
+            sentences = nltk.sent_tokenize(document)
+            sentence_embeddings[-1].append(get_embeddings(sentences, tokenizer, model, device))
+            document_embeddings[-1].append(get_embeddings(document, tokenizer, model, device))
     
     sentence_embeddings_path = os.path.join(path, 'sentence_embeddings.pkl')
     with open(sentence_embeddings_path, 'wb') as f: 

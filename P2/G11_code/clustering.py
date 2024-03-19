@@ -1,4 +1,5 @@
 from G11_code.helper_functions import *
+from G11_code.data_collection import *
 from G11_code.indexing import InvertedIndex
 import numpy as np
 import nltk
@@ -51,10 +52,13 @@ def tf_idf_compute_dissimilarity_matrix(d: int, I: InvertedIndex, conversion_fun
     dissimilarity_matrix = conversion_function(similarity_matrix)
     return lower_diagonal_mask(dissimilarity_matrix)
 
-def bert_compute_dissimilarity_matrix(d: int, D: list, tokenizer, model, device):
-    document = D[d]
-    sentences = nltk.sent_tokenize(document)
-    embeddings = get_embeddings(sentences, tokenizer, model, device)
+def bert_compute_dissimilarity_matrix(d: int, D: list, tokenizer, model, device, file_path: str=""):
+    if file_path != "" or os.path.isfile(file_path):
+        embeddings = flatten(load_embeddings(file_path))[d]
+    else: 
+        document = D[d]
+        sentences = nltk.sent_tokenize(document)
+        embeddings = get_embeddings(sentences, tokenizer, model, device)
     dissimilarity_matrix = cosine_distances(embeddings)
     dissimilarity_matrix = np.clip(dissimilarity_matrix, 0, 1)
     return lower_diagonal_mask(dissimilarity_matrix)
