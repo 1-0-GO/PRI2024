@@ -42,7 +42,8 @@ def compute_similarities_between_sentences(info: list, N: int, num_sentences: in
         sq_norm_sentence += idf_term * log10_tfs**2
     norm_sentence = np.sqrt(sq_norm_sentence)
     normalization = np.outer(norm_sentence, norm_sentence)
-    return similarity_matrix / normalization
+    res = np.divide(similarity_matrix, normalization, out=np.zeros_like(similarity_matrix), where=normalization!=0)
+    return res
 
 def sort_by_value(d: dict, max_elements: int, reverse=False) -> dict: 
     return dict(sorted(d.items(), key=lambda item: item[1], reverse=reverse)[:max_elements])
@@ -55,26 +56,8 @@ def get_embeddings(sentences: list, tokenizer, model, device) -> np.array:
     encoded_input = tokenizer(sentences, return_tensors='pt', padding=True, truncation=True).to(device)
     with torch.no_grad():
         outputs = model(**encoded_input)
-    
-    # Tokenization    
-    #tokenized = [tokenizer.encode(sent, add_special_tokens=True) for sent in sentences]  
-    # Padding
-    #max_len = 0
-    #for i in tokenized:
-    #    if len(i) > max_len:
-    #        max_len = len(i)
-    #padded = np.array([i + [0]*(max_len-len(i)) for i in tokenized])
-    # Masking
-    #attention_mask = np.where(padded != 0, 1, 0)
-    # Running the model
-    #input_ids = torch.tensor(padded, device=device)
-    #attention_mask = torch.tensor(attention_mask, device=device)
-    #with torch.no_grad():
-    #    outputs = model(input_ids, attention_mask=attention_mask)
-    # Get for all sentences (:), the CLS (0), from all hidden unit outputs (:) in the last hidden state
     features = (outputs['last_hidden_state'][:,0,:]).cpu().numpy()
     return features
-
 
 def json_dump(content, path):
     with open(path, 'w') as f: 
