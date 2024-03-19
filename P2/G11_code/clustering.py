@@ -5,6 +5,7 @@ import numpy as np
 import nltk
 import itertools
 from sklearn.metrics.pairwise import cosine_distances
+import kmedoids
 
 
 def dunn_index(dissimilarity_matrix: np.array, clusters: dict, inter_cluster='average', intra_cluster='complete'):
@@ -72,11 +73,19 @@ sentence_clustering(d,args)
 
     @output clustering solution C
 '''
-def sentence_clustering(d: int, clustering_algorithm, model = 'TF-IDF', **args):
+def sentence_clustering(d: int, clustering_algorithm, model = 'TF-IDF', algorithm='k-medoids', **args):
     if model == 'TF-IDF':
         dissimilarity_matrix = tf_idf_compute_dissimilarity_matrix(d, args['I'])
     elif model == 'BERT':
-        dissimilarity_matrix = bert_compute_dissimilarity_matrix(d, args['D'])
+        dissimilarity_matrix = bert_compute_dissimilarity_matrix(d, args['D'], )
+    match algorithm: 
+        case 'k-medoids':
+            I = args['I']
+            doc_info = I.get_document_info(d)
+            num_terms_in_sentences = I.get_num_term_in_sentences(d)
+            num_sentences = len(num_terms_in_sentences)
+            clusters = kmedoids.dynmsc(dissimilarity_matrix, 1 + num_sentences//2, minimum_k=2)
+    return clusters
     
 
 '''
