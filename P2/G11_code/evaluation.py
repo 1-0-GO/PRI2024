@@ -130,15 +130,17 @@ supervised evaluation(Dtest,Rtest,M ,args)
     @output confusion-based scores (e.g. precision, recall, AUC) of the M classifier
 '''
 def supervised_evaluation(Dtest: list, Rtest:list, model, **args):
-    model_name =  ('model' in args and args['model']) or 'XGBoost'
+    model_name =  ('model_name' in args and args['model_name']) or 'XGBoost'
 
     X_test, Y_test = get_XY(Dtest, Rtest)
-    if args['use_pca']: 
+    if 'use_pca' in args: 
         pca = fit_PCA(args['X_train'], n_components=args["n_components"])
         X_test = transform_PCA(pca, X_test)
 
     if model_name == "XGBoost": 
         predictions = model.predict(X_test)
+    elif model_name == "NN": 
+        predictions = np.round(model.predict(np.array(X_test))).astype(int)
     elif model_name == "LSTM": 
         model = None
     else:

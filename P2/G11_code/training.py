@@ -1,7 +1,9 @@
 
 from G11_code.data_collection import flatten
+from G11_code.NNModel import NNModel
 from sklearn.decomposition import PCA 
 import xgboost as xgb
+import numpy as np
 
 
 def split_by_cat(sentence_embeddings_by_cat: list, summary_sentence_indices_by_cat: list):
@@ -61,13 +63,23 @@ def training(Dtrain: list, Rtrain: list, **args):
 
     X_train, Y_train = get_XY(Dtrain, Rtrain)
 
-    if args["use_pca"]: 
+    if "use_pca" in args: 
         pca = fit_PCA(X_train, n_components=args["n_components"])
         X_train = transform_PCA(pca, X_train)
 
     if model_name == "XGBoost": 
         model = xgb.XGBClassifier() 
         model.fit(X_train, Y_train)
+    elif model_name == "NN":
+        if 'n_components' in args: 
+            features_length = args['n_components']
+        else: 
+            features_length = len(X_train[0])
+        model = NNModel(features_length)
+        model.compile(loss='binary_crossentropy', 
+                 optimizer='adam', 
+                 metrics=['AUC'])
+        model.fit(np.array(X_train), np.array(Y_train), epochs=20, verbose=True)
     elif model_name == "LSTM": 
         model = None
     else:
