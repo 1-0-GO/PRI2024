@@ -6,6 +6,7 @@ import nltk
 import itertools
 from sklearn.metrics.pairwise import cosine_distances
 import kmedoids
+from sklearn.cluster import AgglomerativeClustering
 
 
 def dunn_index(dissimilarity_matrix: np.array, clusters: dict, inter_cluster='average', intra_cluster='complete'):
@@ -53,11 +54,20 @@ def tf_idf_compute_dissimilarity_matrix(d: int, I: InvertedIndex, conversion_fun
     dissimilarity_matrix = conversion_function(similarity_matrix)
     return lower_diagonal_mask(dissimilarity_matrix)
 
-def bert_compute_dissimilarity_matrix(d: int, D: list, tokenizer, model, device, file_path: str=""):
+def bert_compute_dissimilarity_matrix(d: int, D: list=[], bert_params: tuple=(), file_path: str=""):
     if file_path != "" and os.path.isfile(file_path):
         embeddings = flatten(pickle_load(file_path))[d]
-    else: 
-        document = D[d]
+    else:
+        try:   
+            tokenizer, model, device = bert_params
+        except ValueError:
+            raise Exception("Sorry, but you need to provide either a file_path with the bert embeddings or the bert_params tuple with (tokenizer, model, device).")
+        try: 
+            document = D[d]
+        except IndexError:
+            if D:
+                raise Exception(f"There's only {len(D)} documents in the document collection (D) you provided, but you are asking for the summary of document number d={d}.")
+            raise Exception("Are you sure you provided a document collection (D=)?")
         sentences = nltk.sent_tokenize(document)
         embeddings = get_embeddings(sentences, tokenizer, model, device)
     dissimilarity_matrix = cosine_distances(embeddings)
@@ -65,29 +75,25 @@ def bert_compute_dissimilarity_matrix(d: int, D: list, tokenizer, model, device,
     return lower_diagonal_mask(dissimilarity_matrix)
 
 '''
-sentence_clustering(d,args)
-    @input document d, optional clustering args
+sentence_clustering(dissimilarity_matrix,args)
+    @input a dissimilarity matrix for a given document, optional clustering args
 
     @behavior identifies the best number of sentence clusters for the target tasks according
     to proper internal indices, returning the corresponding clustering solution
 
-    @output clustering solution C
+    @output num_clusters, clustering solution C
 '''
-def sentence_clustering(d: int, model='TF-IDF', algorithm='k-medoids', **args):
-    I = ('I' in args and args['I']) or None
-    if model == 'TF-IDF':
-        dissimilarity_matrix = tf_idf_compute_dissimilarity_matrix(d, args['I'])
-    elif model == 'BERT':
-        dissimilarity_matrix = bert_compute_dissimilarity_matrix(d, args['D'])
+def sentence_clustering(dissimilarity_matrix, algorithm='k-medoids', **args):
+    kmax = ('kmax' in args and args['kmax']) or len(dissimilarity_matrix)
     match algorithm: 
         case 'k-medoids':
-            num_terms_in_sentences = I.get_num_term_in_sentences(d)
-            num_sentences = len(num_terms_in_sentences)
-            clustering_model = kmedoids.KMedoids(n_clusters = 1 + num_sentences//2, 
-                                         method = 'fastermsc',
+            clustering_model = kmedoids.KMedoids(n_clusters = kmax, 
+                                         method = 'dynmsc',
                                          max_iter=5000)
             clustering_model.fit(dissimilarity_matrix)
-    return clustering_model 
+        case 'agglomerative':
+            clustering_model = AgglomerativeClustering(linkage='average')
+    return len(set(clustering_model.labels_)), clustering_model
     
 
 '''
