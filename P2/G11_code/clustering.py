@@ -73,19 +73,21 @@ sentence_clustering(d,args)
 
     @output clustering solution C
 '''
-def sentence_clustering(d: int, clustering_algorithm, model = 'TF-IDF', algorithm='k-medoids', **args):
+def sentence_clustering(d: int, model='TF-IDF', algorithm='k-medoids', **args):
+    I = ('I' in args and args['I']) or None
     if model == 'TF-IDF':
         dissimilarity_matrix = tf_idf_compute_dissimilarity_matrix(d, args['I'])
     elif model == 'BERT':
-        dissimilarity_matrix = bert_compute_dissimilarity_matrix(d, args['D'], )
+        dissimilarity_matrix = bert_compute_dissimilarity_matrix(d, args['D'])
     match algorithm: 
         case 'k-medoids':
-            I = args['I']
-            doc_info = I.get_document_info(d)
             num_terms_in_sentences = I.get_num_term_in_sentences(d)
             num_sentences = len(num_terms_in_sentences)
-            clusters = kmedoids.dynmsc(dissimilarity_matrix, 1 + num_sentences//2, minimum_k=2)
-    return clusters
+            clustering_model = kmedoids.KMedoids(n_clusters = 1 + num_sentences//2, 
+                                         method = 'fastermsc',
+                                         max_iter=5000)
+            clustering_model.fit(dissimilarity_matrix)
+    return clustering_model 
     
 
 '''
