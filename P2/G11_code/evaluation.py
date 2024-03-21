@@ -2,7 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import statistics
+import sklearn.metrics
 from G11_code.data_collection import flatten
+from G11_code.training import *
 
 def get_accuracy(num_sents, extracted_indices, relevant_indices):
     extracted_indices = set(extracted_indices)
@@ -119,3 +121,35 @@ def evaluation(S: list, R: list, **args) -> list:
     print(f"Mean average precision: {mAP}")
     metrics = {'mean_precision': mean_precision, 'mean_recall': mean_recall, 'mean_f1_scores': mean_f1_scores}
     return metrics
+
+'''
+supervised evaluation(Dtest,Rtest,M ,args)
+    @input testing document collection Dtest, corresponding reference extracts Rtest,
+    the learnt model M , and guiding evaluation args
+    @behavior evaluates the behavior of the given classifier using (3)
+    @output confusion-based scores (e.g. precision, recall, AUC) of the M classifier
+'''
+def supervised_evaluation(Dtest: list, Rtest:list, model, **args):
+    model_name =  ('model' in args and args['model']) or 'XGBoost'
+
+    X_test, Y_test = get_XY(Dtest, Rtest)
+    if args['use_pca']: 
+        pca = fit_PCA(args['X_train'], n_components=args["n_components"])
+        X_test = transform_PCA(pca, X_test)
+
+    if model_name == "XGBoost": 
+        predictions = model.predict(X_test)
+    elif model_name == "LSTM": 
+        model = None
+    else:
+        raise ValueError("Currently we only support the following models for summarization:\n→ XGBoost\n→ BM-25\n→ LSTM")
+    
+    
+    precision = sklearn.metrics.precision_score(Y_test, predictions)
+    recall = sklearn.metrics.recall_score(Y_test, predictions)
+    fpr, tpr, thresholds = sklearn.metrics.roc_curve(Y_test, predictions)  
+    auc = sklearn.metrics.auc(fpr, tpr)
+
+    return precision, recall, auc
+
+

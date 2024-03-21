@@ -57,12 +57,12 @@ training(Dtrain,Rtrain,args)
     @output classification model
 '''
 def training(Dtrain: list, Rtrain: list, **args):
-    model_name =  ('model' in args and args['model']) or 'XGBoost'
+    model_name =  ('model_name' in args and args['model_name']) or 'XGBoost'
 
     X_train, Y_train = get_XY(Dtrain, Rtrain)
 
     if args["use_pca"]: 
-        pca = fit_PCA(X_train, n_components=10)
+        pca = fit_PCA(X_train, n_components=args["n_components"])
         X_train = transform_PCA(pca, X_train)
 
     if model_name == "XGBoost": 
