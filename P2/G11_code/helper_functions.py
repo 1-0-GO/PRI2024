@@ -59,10 +59,6 @@ def get_embeddings(sentences: list, tokenizer, model, device) -> np.array:
     features = (outputs['last_hidden_state'][:,0,:]).cpu().numpy()
     return features
 
-def json_dump(content, path):
-    with open(path, 'w') as f: 
-        json.dump(content, f, indent=4)
-
 def summary_compute(categorized_set_of_articles, summarization_function, path_to_articleID):
     all_scores = list()
     for category_id, category in enumerate(categorized_set_of_articles): 
@@ -86,15 +82,20 @@ def save_embeddings(articles_by_cat: list, tokenizer, model, device, path: str):
             document_embeddings[-1].append(get_embeddings(document, tokenizer, model, device))
     
     sentence_embeddings_path = os.path.join(path, 'sentence_embeddings.pkl')
-    with open(sentence_embeddings_path, 'wb') as f: 
-        pickle.dump(sentence_embeddings, f)
-    
-    document_embeddings_path = os.path.join(path, 'document_embeddings.pkl')
-    with open(document_embeddings_path, 'wb') as f: 
-        pickle.dump(document_embeddings, f)
+    pickle_dump(sentence_embeddings, sentence_embeddings_path)
 
-def load_embeddings(path: str): 
+    document_embeddings_path = os.path.join(path, 'document_embeddings.pkl')
+    pickle_dump(document_embeddings, document_embeddings_path)
+
+def pickle_load(path: str): 
     with open(path, 'rb') as f:    
-        embeddings = pickle.load(f)
-    return embeddings
-    
+        obj = pickle.load(f)
+    return obj 
+
+def pickle_dump(obj, path):
+    with open(path, 'wb') as f: 
+        pickle.dump(obj, f)
+
+def json_dump(content, path):
+    with open(path, 'w') as f: 
+        json.dump(content, f, indent=4)

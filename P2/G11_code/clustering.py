@@ -55,7 +55,7 @@ def tf_idf_compute_dissimilarity_matrix(d: int, I: InvertedIndex, conversion_fun
 
 def bert_compute_dissimilarity_matrix(d: int, D: list, tokenizer, model, device, file_path: str=""):
     if file_path != "" and os.path.isfile(file_path):
-        embeddings = flatten(load_embeddings(file_path))[d]
+        embeddings = flatten(pickle_load(file_path))[d]
     else: 
         document = D[d]
         sentences = nltk.sent_tokenize(document)
