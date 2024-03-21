@@ -8,6 +8,7 @@ from nltk.stem import WordNetLemmatizer
 from collections import Counter, defaultdict
 from tabulate import tabulate
 from textblob import TextBlob
+from G11_code.helper_functions import pickle_load
 
 class TermFrequencies: 
     def __init__(self) -> None:
@@ -152,6 +153,8 @@ indexing(D,args)
     @output pair with the inverted index I and indexing time
 '''
 def indexing(articles, **args) -> InvertedIndex:
+    if 'index_path' in args:
+        return pickle_load(args['index_path'])
     start_time = time.time()
     inverted_index = InvertedIndex(len(articles), [len(article) for article in articles])
 
