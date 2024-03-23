@@ -1,17 +1,24 @@
 from G11_code.helper_functions import *
 from G11_code.data_collection import *
 from G11_code.indexing import InvertedIndex
+from collections import defaultdict
 import numpy as np
 import nltk
-import itertools
-from sklearn.metrics.pairwise import cosine_distances
 import kmedoids
-from sklearn.cluster import AgglomerativeClustering
+from sklearn.metrics.pairwise import cosine_distances
+import scipy.cluster.hierarchy as sch
+from sklearn.metrics import silhouette_score
 
-
-def dunn_index(dissimilarity_matrix: np.array, clusters: dict, inter_cluster='average', intra_cluster='complete'):
+def dunn_index(dissimilarity_matrix: np.array, labels: np.array, inter_cluster='average', intra_cluster='complete'):
+    n_clusters = len(set(labels))
+    clusters =  [[] for _ in range(n_clusters)]
+    for i, label in enumerate(labels):
+        clusters[label].append(i)
     def get_distances_between(c_i, c_j):
-        rows, cols = zip(*itertools.product(clusters[c_i], clusters[c_j]))
+        clust_c_i = clusters[c_i]
+        clust_c_j = clusters[c_j]
+        rows = np.repeat(clust_c_i, len(clust_c_j))
+        cols = np.tile(clust_c_j, len(clust_c_i))
         return dissimilarity_matrix[rows, cols]
     def inter_cluster_dist_single(c_i, c_j):
         return np.min(get_distances_between(c_i, c_j))       
@@ -20,25 +27,21 @@ def dunn_index(dissimilarity_matrix: np.array, clusters: dict, inter_cluster='av
     def inter_cluster_dist_average(c_i, c_j):
         return np.mean(get_distances_between(c_i, c_j))       
     def intra_cluster_dist_single(c_i):
-        rows = clusters[c_i]
-        return np.min(dissimilarity_matrix[rows, rows])
+        return (len(clusters[c_i])>1 and np.min(get_distances_between(c_i, c_i))) or 0
     def intra_cluster_dist_complete(c_i):
-        rows = clusters[c_i]
-        return np.max(dissimilarity_matrix[rows, rows])
+        return (len(clusters[c_i])>1 and np.max(get_distances_between(c_i, c_i))) or 0
     def intra_cluster_dist_average(c_i):
-        rows = clusters[c_i]
-        return np.mean(np.triu(dissimilarity_matrix[rows, rows]))
-    get_inter_cluster = {'single': inter_cluster_dist_single, 'complete': inter_cluster_dist_complete, 'average': inter_cluster_dist_average}
-    get_intra_cluster = {'single': intra_cluster_dist_single, 'complete': intra_cluster_dist_complete, 'average':intra_cluster_dist_average} 
-    inter_cluster_function = get_inter_cluster[inter_cluster]
-    intra_cluster_function = get_intra_cluster[intra_cluster]
-    cohesion = float('inf')
-    for c_i in range(len(clusters)):
-        c_j = c_i + 1
-        while c_j < len(clusters):
-            cohesion = min(cohesion, inter_cluster_function(c_i, c_j))
-    separation = max([intra_cluster_function(c_i) for c_i in range(len(clusters))])
-    return cohesion / separation
+        return (len(clusters[c_i])>1 and np.mean(get_distances_between(c_i, c_i))) or 0
+    get_inter_cluster_option = {'single': inter_cluster_dist_single, 'complete': inter_cluster_dist_complete, 'average': inter_cluster_dist_average}
+    get_intra_cluster_option = {'single': intra_cluster_dist_single, 'complete': intra_cluster_dist_complete, 'average':intra_cluster_dist_average} 
+    inter_cluster_function = get_inter_cluster_option[inter_cluster]
+    intra_cluster_function = get_intra_cluster_option[intra_cluster]
+    separation = float('inf')
+    for c_i in range(n_clusters):
+        for c_j in range(c_i + 1, n_clusters):
+            separation = min(separation, inter_cluster_function(c_i, c_j))
+    cohesion = max([intra_cluster_function(c_i) for c_i in range(n_clusters)]) or float('inf')
+    return separation / cohesion
                 
 def lower_diagonal_mask(a: np.array, k: int=0) -> np.array:
     mask = np.tril(np.ones_like(a), k=k)
@@ -75,13 +78,13 @@ def bert_compute_dissimilarity_matrix(d: int, D: list=[], bert_params: tuple=(),
     return lower_diagonal_mask(dissimilarity_matrix)
 
 '''
-sentence_clustering(dissimilarity_matrix,args)
-    @input a dissimilarity matrix for a given document, optional clustering args
+sentence_clustering(dissimilarity_matrix, algorithm, args)
+    @input a dissimilarity matrix for a given document, algorithm to compute the clustering,optional clustering args. If algorithm='agglomerative' then 'metric' can be used to specify the evaluation metric optimized when cutting the dendogram, by default, it's silhouette. If dunn related args can be passed to the function.
 
     @behavior identifies the best number of sentence clusters for the target tasks according
     to proper internal indices, returning the corresponding clustering solution
 
-    @output num_clusters, clustering solution C
+    @output num_clusters, clustering solution C (C[i] is the cluster number to which sentence i belongs).
 '''
 def sentence_clustering(dissimilarity_matrix, algorithm='k-medoids', **args):
     kmax = ('kmax' in args and args['kmax']) or len(dissimilarity_matrix)
@@ -91,9 +94,14 @@ def sentence_clustering(dissimilarity_matrix, algorithm='k-medoids', **args):
                                          method = 'dynmsc',
                                          max_iter=5000)
             clustering_model.fit(dissimilarity_matrix)
+            labels = clustering_model.labels_
         case 'agglomerative':
-            clustering_model = AgglomerativeClustering(linkage='average')
-    return len(set(clustering_model.labels_)), clustering_model
+            metric = ('metric' in args and args['metric']) \
+                or 'silhouette'
+            Z = sch.linkage(dissimilarity_matrix.compressed(), 'average')
+            for k in range(kmax):
+                labels = sch.fcluster(Z, k, criterion='maxclust')
+    return len(set(labels)), labels
     
 
 '''
