@@ -14,6 +14,7 @@ def log10_tf(x):
         return 0
     
 def tf_idf_term(N, df_t, tf_t_d):
+    df_t = df_t or 1
     return log10_tf(tf_t_d) * np.log10(N/df_t)
 
 def tf_idf_relevance_scores(info: list, N: int):
