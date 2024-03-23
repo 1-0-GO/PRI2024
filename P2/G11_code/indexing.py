@@ -51,6 +51,10 @@ class InvertedIndexEntry:
     
     def calculate_df(self):
         self.df_term = len(self.term_dict)
+    
+    def recalculate_df(self, train_doc_ids):
+        doc_ids_with_term = set(self.term_dict.keys())
+        self.df_term = len(doc_ids_with_term.intersection(set(train_doc_ids)))
 
 class InvertedIndex:
     def __init__(self, collection_size, doc_lengths) -> None:
@@ -80,6 +84,10 @@ class InvertedIndex:
     def calculate_dfs(self):
         for entry in self.inverted_index.values():
             entry.calculate_df()  
+
+    def recalculate_dfs(self, train_doc_ids):
+        for entry in self.inverted_index.values():
+            entry.recalculate_df(train_doc_ids)  
     
     def get_num_term_in_sentences(self, document):
         return self.num_terms_in_sentences[document]
