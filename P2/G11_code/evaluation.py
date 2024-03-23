@@ -133,6 +133,9 @@ def supervised_evaluation(Dtest: list, Rtest:list, model, **args):
     model_name =  ('model_name' in args and args['model_name']) or 'XGBoost'
 
     X_test, Y_test = get_XY(Dtest, Rtest)
+    X_test = flatten(X_test)
+    Y_test = flatten(Y_test)
+
     if 'use_pca' in args: 
         pca = fit_PCA(args['X_train'], n_components=args["n_components"])
         X_test = transform_PCA(pca, X_test)

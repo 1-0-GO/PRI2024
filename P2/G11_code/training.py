@@ -32,8 +32,8 @@ def get_XY(sentence_embeddings_by_cat: list, summary_sentence_indices_by_cat: li
         for k in indices: 
             y[k] = 1
         Y.append(y)
-    X = flatten(X)
-    Y = flatten(Y)
+    #X = flatten(X)
+    #Y = flatten(Y)
     return X, Y
 
 def split(X: list, Y: list, train_ratio: float):
@@ -62,6 +62,8 @@ def training(Dtrain: list, Rtrain: list, **args):
     model_name =  ('model_name' in args and args['model_name']) or 'XGBoost'
 
     X_train, Y_train = get_XY(Dtrain, Rtrain)
+    X_train = flatten(X_train)
+    Y_train = flatten(Y_train)
 
     if "use_pca" in args: 
         pca = fit_PCA(X_train, n_components=args["n_components"])
