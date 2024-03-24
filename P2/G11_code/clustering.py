@@ -78,15 +78,34 @@ def bert_compute_dissimilarity_matrix(d: int, D: list=[], bert_params: tuple=(),
     return lower_diagonal_mask(dissimilarity_matrix)
 
 '''
-sentence_clustering(dissimilarity_matrix, algorithm, args)
-    @input a dissimilarity matrix for a given document, algorithm to compute the clustering,optional clustering args. If algorithm='agglomerative' then 'metric' can be used to specify the evaluation metric optimized when cutting the dendogram, by default, it's silhouette. If dunn related args can be passed to the function.
+sentence_clustering(d, metric, algorithm, args)
+    @input 
+    d: array_like or int
+        A dissimilarity matrix for a given document if metric=='precomputed', document id otherwise.
 
-    @behavior identifies the best number of sentence clusters for the target tasks according
+    metric: str or function
+        'precomputed' by default. Can be function that takes a document id and returns a dissimilarity matrix (e.g. f = lambda d: tf_idf_compute_dissimilarity_matrix(d, I)).
+
+    algorithm: str
+        Algorithm used to compute the clustering. One of 'k-medoids' or 'agglomerative' By default it's k-medoids.
+    
+    optional clustering args:
+        evaluate: str
+            If algorithm='agglomerative' then paramater 'evaluate' can be used to specify the evaluation metric optimized when cutting the dendogram. By default, it's the silhouette_score. 'evaluate' should be a function that receives a dissimilarity matrix and labels and outputs the metric's value.
+        linkage: str
+            If algorithm='agglomerative' then parameter linkage can be used to specify the linkage method. Default is 'average'.
+        kmax: int
+            Maximum number of clusters.
+        
+    @behavior 
+    identifies the best number of sentence clusters for the target tasks according
     to proper internal indices, returning the corresponding clustering solution
 
-    @output num_clusters, clustering solution C (C[i] is the cluster number to which sentence i belongs).
+    @output 
+    num_clusters, clustering solution C (C[i] is the cluster number to which sentence i belongs).
 '''
-def sentence_clustering(dissimilarity_matrix, algorithm='k-medoids', **args):
+def sentence_clustering(d, metric='precomputed', algorithm='k-medoids', **args):
+    dissimilarity_matrix = (metric == 'precomputed' and d) or metric(d)
     kmax = ('kmax' in args and args['kmax']) or len(dissimilarity_matrix)
     match algorithm: 
         case 'k-medoids':
@@ -96,12 +115,20 @@ def sentence_clustering(dissimilarity_matrix, algorithm='k-medoids', **args):
             clustering_model.fit(dissimilarity_matrix)
             labels = clustering_model.labels_
         case 'agglomerative':
-            metric = ('metric' in args and args['metric']) \
-                or 'silhouette'
-            Z = sch.linkage(dissimilarity_matrix.compressed(), 'average')
-            for k in range(kmax):
+            evaluate = ('evaluate' in args and args['evaluate']) \
+                or (lambda dM,labs: silhouette_score(dM, labs, metric='precomputed'))
+            linkage = ('linkage' in args and args['linkage']) or 'average'
+            Z = sch.linkage(dissimilarity_matrix.compressed(), method=linkage)
+            kmax += 1
+            max_score = np.NINF
+            max_labels = None
+            for k in range(2, kmax):
                 labels = sch.fcluster(Z, k, criterion='maxclust')
-    return len(set(labels)), labels
+                score = evaluate(dissimilarity_matrix, labels)
+                if max_score > score:
+                    max_labels = labels
+                    max_score = score
+    return len(set(max_labels)), max_labels
     
 
 '''
