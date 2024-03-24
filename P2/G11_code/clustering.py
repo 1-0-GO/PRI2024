@@ -9,11 +9,16 @@ from sklearn.metrics.pairwise import cosine_distances
 import scipy.cluster.hierarchy as sch
 from sklearn.metrics import silhouette_score
 
-def dunn_index(dissimilarity_matrix: np.array, labels: np.array, inter_cluster='average', intra_cluster='complete'):
+def transform_labels(labels):
     n_clusters = len(set(labels))
     clusters =  [[] for _ in range(n_clusters)]
+    min_ci = min(labels)
     for i, label in enumerate(labels):
-        clusters[label].append(i)
+        clusters[label - min_ci].append(i)
+    return n_clusters, clusters
+
+def dunn_index(dissimilarity_matrix: np.array, labels: np.array, inter_cluster='average', intra_cluster='complete'):
+    n_clusters, clusters = transform_labels(labels)
     def get_distances_between(c_i, c_j):
         clust_c_i = clusters[c_i]
         clust_c_j = clusters[c_j]
@@ -105,7 +110,10 @@ sentence_clustering(d, metric, algorithm, args)
     num_clusters, clustering solution C (C[i] is the cluster number to which sentence i belongs).
 '''
 def sentence_clustering(d, metric='precomputed', algorithm='k-medoids', **args):
-    dissimilarity_matrix = (metric == 'precomputed' and d) or metric(d)
+    if metric == 'precomputed':
+        dissimilarity_matrix = d
+    else:
+        dissimilarity_matrix = metric(d)
     kmax = ('kmax' in args and args['kmax']) or len(dissimilarity_matrix)
     match algorithm: 
         case 'k-medoids':
@@ -114,6 +122,7 @@ def sentence_clustering(d, metric='precomputed', algorithm='k-medoids', **args):
                                          max_iter=5000)
             clustering_model.fit(dissimilarity_matrix)
             labels = clustering_model.labels_
+            return len(set(labels)), (labels, clustering_model.medoid_indices_)
         case 'agglomerative':
             evaluate = ('evaluate' in args and args['evaluate']) \
                 or (lambda dM,labs: silhouette_score(dM, labs, metric='precomputed'))
@@ -125,10 +134,11 @@ def sentence_clustering(d, metric='precomputed', algorithm='k-medoids', **args):
             for k in range(2, kmax):
                 labels = sch.fcluster(Z, k, criterion='maxclust')
                 score = evaluate(dissimilarity_matrix, labels)
-                if max_score > score:
+                if score > max_score:
                     max_labels = labels
                     max_score = score
-    return len(set(max_labels)), max_labels
+            labels = max_labels
+    return len(set(labels)), labels
     
 
 '''
