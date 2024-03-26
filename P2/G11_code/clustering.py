@@ -7,7 +7,8 @@ import nltk
 import kmedoids
 from sklearn.metrics.pairwise import cosine_distances
 import scipy.cluster.hierarchy as sch
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import silhouette_score, silhouette_samples
+from numpy import percentile
 
 def transform_labels(labels):
     n_clusters = len(set(labels))
@@ -19,6 +20,8 @@ def transform_labels(labels):
 
 def dunn_index(dissimilarity_matrix: np.array, labels: np.array, inter_cluster='average', intra_cluster='complete'):
     n_clusters, clusters = transform_labels(labels)
+    if np.ma.isMaskedArray(dissimilarity_matrix):
+        dissimilarity_matrix = dissimilarity_matrix.data
     def get_distances_between(c_i, c_j):
         clust_c_i = clusters[c_i]
         clust_c_j = clusters[c_j]
@@ -88,15 +91,15 @@ sentence_clustering(d, metric, algorithm, args)
     d: array_like or int
         A dissimilarity matrix for a given document if metric=='precomputed', document id otherwise.
 
-    metric: str or function
-        'precomputed' by default. Can be function that takes a document id and returns a dissimilarity matrix (e.g. f = lambda d: tf_idf_compute_dissimilarity_matrix(d, I)).
+    metric: str or callable
+        'precomputed' by default. Can be a callable that takes a document id and returns a dissimilarity matrix (e.g. f = lambda d: tf_idf_compute_dissimilarity_matrix(d, I)).
 
     algorithm: str
         Algorithm used to compute the clustering. One of 'k-medoids' or 'agglomerative' By default it's k-medoids.
     
     optional clustering args:
         evaluate: str
-            If algorithm='agglomerative' then paramater 'evaluate' can be used to specify the evaluation metric optimized when cutting the dendogram. By default, it's the silhouette_score. 'evaluate' should be a function that receives a dissimilarity matrix and labels and outputs the metric's value.
+            If algorithm='agglomerative' then paramater 'evaluate' can be used to specify the evaluation metric optimized when cutting the dendogram. By default, it's the silhouette_score. 'evaluate' should be a callable that receives a dissimilarity matrix and labels and outputs the metric's value.
         linkage: str
             If algorithm='agglomerative' then parameter linkage can be used to specify the linkage method. Default is 'average'.
         kmax: int
@@ -107,13 +110,20 @@ sentence_clustering(d, metric, algorithm, args)
     to proper internal indices, returning the corresponding clustering solution
 
     @output 
-    num_clusters, clustering solution C (C[i] is the cluster number to which sentence i belongs).
+    num_clusters, clustering solution C. If the algorithm is k-medoids then C is a tuple with C=(labels, medoid_indices), if it is agglomerative it is just C = labels, where labels[i] is the cluster number to which sentence i was assigned, and medoid_indices[j] is the medoid of cluster j.
 '''
 def sentence_clustering(d, metric='precomputed', algorithm='k-medoids', **args):
     if metric == 'precomputed':
         dissimilarity_matrix = d
     else:
+        if type(metric) != function:
+            raise TypeError('If metric is not precomputed this parameter should be a callable that computes the similarity matrix given a document id.')
         dissimilarity_matrix = metric(d)
+    if np.ma.isMaskedArray(dissimilarity_matrix):
+        diss = dissimilarity_matrix.data
+    else:
+        diss = dissimilarity_matrix
+    np.fill_diagonal(diss, 0)
     kmax = ('kmax' in args and args['kmax']) or len(dissimilarity_matrix)
     match algorithm: 
         case 'k-medoids':
@@ -125,7 +135,7 @@ def sentence_clustering(d, metric='precomputed', algorithm='k-medoids', **args):
             return len(set(labels)), (labels, clustering_model.medoid_indices_)
         case 'agglomerative':
             evaluate = ('evaluate' in args and args['evaluate']) \
-                or (lambda dM,labs: silhouette_score(dM, labs, metric='precomputed'))
+                or (lambda dm,labs: silhouette_score(dm, labs, metric='precomputed'))
             linkage = ('linkage' in args and args['linkage']) or 'average'
             Z = sch.linkage(dissimilarity_matrix.compressed(), method=linkage)
             kmax += 1
@@ -133,7 +143,9 @@ def sentence_clustering(d, metric='precomputed', algorithm='k-medoids', **args):
             max_labels = None
             for k in range(2, kmax):
                 labels = sch.fcluster(Z, k, criterion='maxclust')
-                score = evaluate(dissimilarity_matrix, labels)
+                if(len(set(labels)) == 1):
+                    continue
+                score = evaluate(diss, labels)
                 if score > max_score:
                     max_labels = labels
                     max_score = score
@@ -142,16 +154,41 @@ def sentence_clustering(d, metric='precomputed', algorithm='k-medoids', **args):
     
 
 '''
-summarization(d,C,I,args)
-    @input document d, sentence clusters C, optional inverted index I and guiding args
+summarization(d,labels,metric,**args)
+    @input 
+    d: array_like or int
+        A dissimilarity matrix for a given document if metric=='precomputed', document id otherwise.
+    metric: str or callable
+        'precomputed' by default. Can be a callable that takes a document id and returns a dissimilarity matrix (e.g. f = lambda d: tf_idf_compute_dissimilarity_matrix(d, I)).
+    labels: list
+        sentence label assignments
+    optional guiding args
+        cluster_centers: list
+            cluster_center[j] is the best representative point of cluster j. If None then the point with the highest silhouette (accorgind to arg silhouette_samples) in each cluster will be selected as the representative point of cluster j.
 
-    @behavior ranks non-redundant sentences from the clustering solution, taking into
-    attention that ranking criteria can be derived from the clusters' properties
+    @behavior ranks non-redundant sentences from the clustering solution, using ranking criteria that can be derived from the clusters' properties.
 
     @output summary (without pre-fixed size limits)
 '''
-def summarization(d, C, I, **args):
-    pass
+def summarization(d, labels, metric, **args):
+    def outlier(c, dM, ul):
+        dM = dM.data
+        return (len(c) == 1 and np.percentile(dM[c[0]], 25) >= ul)
+    if metric == 'precomputed':
+        dissimilarity_matrix = d
+    else:
+        if type(metric) != function:
+            raise TypeError('If metric is not precomputed this parameter should be a callable that computes the similarity matrix given a document id.')
+        dissimilarity_matrix = metric(d)
+    n_clust, clusters = transform_labels(labels)
+    silh_samples = silhouette_samples(dissimilarity_matrix, labels, metric='precomputed')
+    # remove outliers
+    ul = np.percentile(dissimilarity_matrix.compressed(), 80)
+    clusters_ = [clust for clust in clusters if not outlier(clust, dissimilarity_matrix, ul)]
+    if 'cluster_centers' in args:
+        pass
+    else:
+        pass
 
 '''
 keyword_extraction(d,C,I,args)
