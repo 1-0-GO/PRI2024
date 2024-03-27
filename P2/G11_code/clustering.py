@@ -18,28 +18,29 @@ def transform_labels(labels):
         clusters[label - min_ci].append(i)
     return n_clusters, clusters
 
+def get_submatrix(diss, clusters, c_i, c_j):
+    clust_c_i = clusters[c_i]
+    clust_c_j = clusters[c_j]
+    rows = np.repeat(clust_c_i, len(clust_c_j))
+    cols = np.tile(clust_c_j, len(clust_c_i))
+    return diss[rows, cols]
+
 def dunn_index(dissimilarity_matrix: np.array, labels: np.array, inter_cluster='average', intra_cluster='complete'):
     n_clusters, clusters = transform_labels(labels)
     if np.ma.isMaskedArray(dissimilarity_matrix):
         dissimilarity_matrix = dissimilarity_matrix.data
-    def get_distances_between(c_i, c_j):
-        clust_c_i = clusters[c_i]
-        clust_c_j = clusters[c_j]
-        rows = np.repeat(clust_c_i, len(clust_c_j))
-        cols = np.tile(clust_c_j, len(clust_c_i))
-        return dissimilarity_matrix[rows, cols]
     def inter_cluster_dist_single(c_i, c_j):
-        return np.min(get_distances_between(c_i, c_j))       
+        return np.min(get_submatrix(dissimilarity_matrix, clusters, c_i, c_j))       
     def inter_cluster_dist_complete(c_i, c_j):
-        return np.max(get_distances_between(c_i, c_j))       
+        return np.max(get_submatrix(dissimilarity_matrix, clusters, c_i, c_j))       
     def inter_cluster_dist_average(c_i, c_j):
-        return np.mean(get_distances_between(c_i, c_j))       
+        return np.mean(get_submatrix(dissimilarity_matrix, clusters, c_i, c_j))       
     def intra_cluster_dist_single(c_i):
-        return (len(clusters[c_i])>1 and np.min(get_distances_between(c_i, c_i))) or 0
+        return (len(clusters[c_i])>1 and np.min(get_submatrix(dissimilarity_matrix, clusters, c_i, c_i))) or 0
     def intra_cluster_dist_complete(c_i):
-        return (len(clusters[c_i])>1 and np.max(get_distances_between(c_i, c_i))) or 0
+        return (len(clusters[c_i])>1 and np.max(get_submatrix(dissimilarity_matrix, clusters, c_i, c_i))) or 0
     def intra_cluster_dist_average(c_i):
-        return (len(clusters[c_i])>1 and np.mean(get_distances_between(c_i, c_i))) or 0
+        return (len(clusters[c_i])>1 and np.mean(get_submatrix(dissimilarity_matrix, clusters, c_i, c_i))) or 0
     get_inter_cluster_option = {'single': inter_cluster_dist_single, 'complete': inter_cluster_dist_complete, 'average': inter_cluster_dist_average}
     get_intra_cluster_option = {'single': intra_cluster_dist_single, 'complete': intra_cluster_dist_complete, 'average':intra_cluster_dist_average} 
     inter_cluster_function = get_inter_cluster_option[inter_cluster]
@@ -180,15 +181,41 @@ def summarization(d, labels, metric, **args):
         if type(metric) != function:
             raise TypeError('If metric is not precomputed this parameter should be a callable that computes the similarity matrix given a document id.')
         dissimilarity_matrix = metric(d)
+    if np.ma.isMaskedArray(dissimilarity_matrix):
+        diss = dissimilarity_matrix.data
+    else:
+        diss = dissimilarity_matrix
+    n_sents = len(diss)
     n_clust, clusters = transform_labels(labels)
     silh_samples = silhouette_samples(dissimilarity_matrix, labels, metric='precomputed')
     # remove outliers
     ul = np.percentile(dissimilarity_matrix.compressed(), 80)
     clusters_ = [clust for clust in clusters if not outlier(clust, dissimilarity_matrix, ul)]
+    median_cluster_size = np.median([len(clust) for clust in clusters_])
     if 'cluster_centers' in args:
-        pass
+        cluster_centers = args['cluster_centers']
     else:
+        #select cluster_centers based on silhouette
         pass
+    in_summary = []
+    sort_by_size_silh = lambda x: sorted(x, key = lambda tup: len(tup[0]), reverse=True)
+    data = sort_by_size_silh(zip(clusters_, cluster_centers))
+    for i,(clust,center) in enumerate(data):
+        clust_size = len(clust)
+        candidates = [(center, clust_size)]
+        if(clust_size > 5 and clust_size > min(2*median_cluster_size,int(0.75*n_sents)) and min(silh_samples[clust]) < 0.05):
+            # Find subtopics
+            clustering_model = kmedoids.KMedoids(n_clusters = clust_size//2, method = 'dynmsc')
+            dM = get_submatrix(diss, [clust], 0, 0)
+            clustering_model.fit(dM)
+            sublabels = clustering_model.labels_
+            subcenters = clustering_model.medoid_indices_
+            _, subclusters = transform_labels(sublabels)
+            # subclusters are relative to the indexing in the dM matrix so 0,1,2... but should be using cluster j's points
+            mapping = lambda x: [clust[i] for i in x]
+            subclusters_ = [mapping(subcl) for subcl in subclusters]
+            subcenters_ = mapping(subcenters)
+            subdata = sort_by_size_silh(zip(subclusters_, subcenters_))
 
 '''
 keyword_extraction(d,C,I,args)
