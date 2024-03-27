@@ -100,3 +100,28 @@ def pickle_dump(obj, path):
 def json_dump(content, path):
     with open(path, 'w') as f: 
         json.dump(content, f, indent=4)
+        
+def generate_doc_ids_cat():
+    doc_ids_cat = []
+
+    doc_ids_cat.append([])
+    for i in range(510):
+        doc_ids_cat[-1].append(i)
+
+    doc_ids_cat.append([])
+    for i in range(510,893):
+        doc_ids_cat[-1].append(i)
+
+    doc_ids_cat.append([])
+    for i in range(893, 1310):
+        doc_ids_cat[-1].append(i)
+
+    doc_ids_cat.append([])
+    for i in range(1310, 1819):
+        doc_ids_cat[-1].append(i)    
+
+    doc_ids_cat.append([])
+    for i in range(1819, 2220):
+        doc_ids_cat[-1].append(i)
+    
+    return doc_ids_cat
