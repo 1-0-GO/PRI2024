@@ -195,27 +195,29 @@ def summarization(d, labels, metric, **args):
     if 'cluster_centers' in args:
         cluster_centers = args['cluster_centers']
     else:
-        #select cluster_centers based on silhouette
-        pass
+        cluster_centers = [clust[np.argmax(silh_samples[clust])] for clust in clusters]
     in_summary = []
-    sort_by_size_silh = lambda x: sorted(x, key = lambda tup: len(tup[0]), reverse=True)
-    data = sort_by_size_silh(zip(clusters_, cluster_centers))
+    sort_by_size_silh = lambda silh: lambda cl: sorted(cl, key = lambda tup: (len(tup[0]), np.mean(silh[clust])), reverse=True)
+    data = sort_by_size_silh(silh_samples)(zip(clusters_, cluster_centers))
     for i,(clust,center) in enumerate(data):
         clust_size = len(clust)
-        candidates = [(center, clust_size)]
-        if(clust_size > 5 and clust_size > min(2*median_cluster_size,int(0.75*n_sents)) and min(silh_samples[clust]) < 0.05):
+        if(clust_size > 5 and clust_size > min(2*median_cluster_size, int(0.75*n_sents)) and min(silh_samples[clust]) < 0.05):
             # Find subtopics
             clustering_model = kmedoids.KMedoids(n_clusters = clust_size//2, method = 'dynmsc')
-            dM = get_submatrix(diss, [clust], 0, 0)
-            clustering_model.fit(dM)
+            subdiss = get_submatrix(diss, [clust], 0, 0)
+            clustering_model.fit(subdiss)
             sublabels = clustering_model.labels_
             subcenters = clustering_model.medoid_indices_
             _, subclusters = transform_labels(sublabels)
+            sub_silh_samples = silhouette_samples(subdiss, sublabels, metric='precomputed')
+            subdata = sort_by_size_silh(sub_silh_samples)(zip(subclusters, subcenters))
             # subclusters are relative to the indexing in the dM matrix so 0,1,2... but should be using cluster j's points
             mapping = lambda x: [clust[i] for i in x]
-            subclusters_ = [mapping(subcl) for subcl in subclusters]
-            subcenters_ = mapping(subcenters)
-            subdata = sort_by_size_silh(zip(subclusters_, subcenters_))
+            subcenters_ = mapping([subcenter for _,subcenter in subdata])
+            in_summary.extend(subcenters_)
+        else:
+            in_summary.append(center)
+    return in_summary
 
 '''
 keyword_extraction(d,C,I,args)
