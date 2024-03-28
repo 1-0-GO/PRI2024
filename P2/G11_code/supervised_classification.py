@@ -2,6 +2,7 @@ import numpy as np
 import spacy
 from collections import defaultdict
 import nltk
+from G11_code.data_collection import flatten
 from G11_code.helper_functions import sort_by_value, tf_idf_term, log10_tf, select_and_sort
 from G11_code.training import split
 from G11_code.indexing import *
@@ -55,7 +56,7 @@ def get_scores_and_keywords(docs: list, sent_embeddings:list, doc_embeddings:lis
         for term, df_t, tf_t_d, tf_per_sentence in term_doc_info:
             rel_t_d = tf_idf_term(I.N, df_t, tf_t_d)
             keyword_scores[term] = rel_t_d
-            for sent_number, tf_s_t in tf_per_sentence:
+            for sent_number, tf_s_t, _ in tf_per_sentence:
                 tfidf[sent_number] += rel_t_d * log10_tf(tf_s_t)
                 sq_normalization_term[sent_number] = log10_tf(tf_s_t)**2
         # normalization
@@ -79,7 +80,7 @@ def get_scores_and_keywords(docs: list, sent_embeddings:list, doc_embeddings:lis
         bm25 = {key: 0 for key in range(num_sentences)}
         avg_sentence_length = sum(num_terms_in_sentences)/num_sentences
         for term, df_t, tf_t_d, tf_per_sentence in term_doc_info: 
-            for sent_number, tf_s_t in tf_per_sentence: 
+            for sent_number, tf_s_t, _ in tf_per_sentence: 
                 bm25[sent_number] += BM25_term(df_t, tf_s_t, I.N, avg_sentence_length, num_terms_in_sentences[sent_number], k, b)
         bm25 = sort_by_value(bm25, max_elements=len(bm25), reverse=True)
         
