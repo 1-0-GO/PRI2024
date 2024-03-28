@@ -257,11 +257,18 @@ def supervised_summarization(d:int, M, p=7, l=0, **args):
         frame = pd.DataFrame(frame)
     else:
         x_test = ('x_test' in args and args['x_test']) 
-        frame = x_test[x_test['document_id']==d]
+        if ('is_lstm' in args and args['is_lstm']) or False:
+            lstm_doc_map = ('lstm_doc_map' in args and args['lstm_doc_map'])
+            pred = np.squeeze(M.predict(np.expand_dims(x_test[(lstm_doc_map[d])], axis=0)))
+        else:
+            frame = x_test[x_test['document_id']==d]
+            frame = frame.iloc[:,1:]
         I = ('I' in args and args['I']) or I
     
     sentence_lengths = I.sentence_num_chars[d]
-    
-    scores = {sent_id: M.predict(frame[frame['sent_id']==sent_id])[0] for sent_id in frame['sent_id']}
+    if ('is_lstm' in args and args['is_lstm']) or False: 
+        scores = {rank: value for rank, value in enumerate(pred)}
+    else:
+        scores = {sent_id: M.predict(frame[frame['sent_id']==sent_id])[0] for sent_id in frame['sent_id']}
     
     return select_and_sort(scores=scores, o=o, p=p, l=l, sentence_lengths=sentence_lengths)

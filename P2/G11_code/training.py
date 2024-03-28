@@ -145,13 +145,14 @@ def training(Dtrain: list, Rtrain: list, **args):
         X_train.sort(key=len)
         X_train_groups = [list(g) for k, g in groupby(X_train, key=len)]
         Y_train_groups = [list(g) for k, g in groupby(Y_train, key=len)]
-        epochs = 100
+        epochs = 12
         for i in range(epochs):
             for X, y in zip(X_train_groups, Y_train_groups):
                 X = np.array(X)
-                X = X.reshape(len(X), len(X[0]), feature_length)
                 y = np.array(y)
-                y = y.reshape(len(y), len(y[0]), 1)
+                if not use_extracted_features:
+                    X = X.reshape(len(X), len(X[0]), feature_length)
+                    y = y.reshape(len(y), len(y[0]), 1)
                 history = model.fit(X, y, epochs=1, batch_size=32, verbose=0, shuffle=True)
             avg_loss = np.mean(history.history['loss'][-100:])
             avg_auc = np.mean(history.history['auc'][-100:])
