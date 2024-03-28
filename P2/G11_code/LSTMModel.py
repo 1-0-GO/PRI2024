@@ -1,13 +1,12 @@
 import keras
-from keras.layers import LSTM, TimeDistributed, Dense, Bidirectional, Dropout
+from keras.layers import LSTM, TimeDistributed, Dense, Bidirectional, Dropout, Input
 
 
 class LSTMModel(keras.Model):
     def __init__(self, LSTM_units, n_components):
         super().__init__()
-        self.lstm1 = Bidirectional(LSTM(units=LSTM_units, 
-               input_shape=(None, n_components), 
-               return_sequences=True))
+        self.inp = Input(shape=(None, n_components))
+        self.lstm1 = Bidirectional(LSTM(units=LSTM_units, return_sequences=True))
         self.dropout1 = Dropout(0.1)
         self.lstm2 = Bidirectional(LSTM(units=LSTM_units, return_sequences=True))
         self.dropout2 = Dropout(0.1)

@@ -154,10 +154,9 @@ def supervised_evaluation(Dtest: list, Rtest:list, model, **args):
     elif model_name == "LSTM": 
         predictions = list()
         Y_test = np.array(flatten(Y_test))
-        for X, y in zip(X_test, Y_test): 
+        for X in X_test: 
             X = np.array(X)
             X = np.expand_dims(X, axis=0)
-            y = np.array(y)
             pred = model.predict(X, verbose=0)
             pred = np.round(pred.squeeze()).astype(int)
             predictions.extend(pred)

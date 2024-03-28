@@ -133,8 +133,8 @@ def training(Dtrain: list, Rtrain: list, **args):
             feature_length = len(X_train[0])
         model = LSTMModel(128, feature_length)
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=["AUC"])
-        model.build(input_shape=(None, None, feature_length))
-        print(model.summary())
+        #model.build(input_shape=(None, None, feature_length))
+        #print(model.summary())
         Y_train = [y for _, y in sorted(zip(X_train, Y_train), key=lambda x: len(x[0]))]
         X_train.sort(key=len)
         X_train_groups = [list(g) for k, g in groupby(X_train, key=len)]
