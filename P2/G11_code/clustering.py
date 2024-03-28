@@ -150,7 +150,13 @@ def sentence_clustering(d, metric='precomputed', algorithm='k-medoids', **args):
                 if score > max_score:
                     max_labels = labels
                     max_score = score
-            labels = max_labels
+            if max_score > np.NINF:
+                labels = max_labels
+            else:
+                labels = np.ones(len(diss), dtype=np.int32)
+                argmin = np.argmin(diss)
+                labels[argmin//len(diss)] = 2
+                labels[argmin%len(diss)] = 2
             indices = None
     return len(set(labels)), (labels, indices)
     
