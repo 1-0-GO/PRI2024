@@ -230,7 +230,16 @@ def construct_df_and_split(doc_ids_by_cat:list, summary_sentence_indices_by_cat:
             y_test.append(0)
     return X_train, y_train, X_test, y_test
 
-
+'''
+summarization(d,M ,p,l,args)
+    @input document d ∈ Dtest, classification model M , maximum number of sen-
+    tences (p) and/or characters (l), and guiding args
+    @behavior using M , summarizes d without prefixed size limits by identifying relevant
+    sentence candidates for the summary or, in alternative, with prefixed size
+    limits (p and/or l) by ranking the sentences s in d based on their likelihood
+    to be selected as part of the document summary
+    @output summary s of document d
+'''
 def supervised_summarization(d:int, M, p=7, l=0, **args):
     
     o= ('o' in args and args['o']) or "rel"

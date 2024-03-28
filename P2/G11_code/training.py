@@ -20,8 +20,13 @@ def split_by_cat(sentence_embeddings_by_cat: list, summary_sentence_indices_by_c
     test_emb_by_cat = list() 
     test_ind_by_cat = list() 
 
+    train_doc_indices = list()
+    test_doc_indices = list()
+
     for sentence_embeddings, sentence_indices in category_group: 
         train_emb, test_emb, train_ind, test_ind = split(sentence_embeddings, sentence_indices, 0.8)
+        # indices 
+        t1, t2 = split(range(len()))
         train_emb_by_cat.append(train_emb)
         train_ind_by_cat.append(train_ind)
         test_emb_by_cat.append(test_emb)

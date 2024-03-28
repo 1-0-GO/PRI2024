@@ -70,7 +70,7 @@ def get_summary_sentence_indices(articles: list, summaries: list) -> list:
             sentence_indices = list()
             recreated_summary = ""
             article_sents = sent_tokenize(article)
-            article_sents = set(article_sents)
+            article_sents = article_sents
             for sent_id, sent in enumerate(article_sents): 
                 if summary.find(sent) != -1: 
                     sentence_indices.append(sent_id)
@@ -87,8 +87,15 @@ def get_summary_sentence_indices(articles: list, summaries: list) -> list:
     print(f"{float(found_summary)/float(len(flatten(summaries))) * 100 :.2f}%")
     return categorized_summary_indices, faulty_summaries
                     
+def remove_entries_by_category(category_contents, category_id, faulty_summary_ids):
+    result = list() 
+    for article_id, content in enumerate(category_contents): 
+        if (category_id, article_id) not in faulty_summary_ids: 
+            result.append(content)
+        else: 
+            t = 0
+    return result
+    
 def remove_entries(categorized_list: list, faulty_summary_ids: list):
-    def remove_entries_by_category(category_contents, category_id):
-        return [content for article_id, content in enumerate(category_contents) if (category_id, article_id) not in faulty_summary_ids]
-    return [remove_entries_by_category(contents, category_id) for category_id, contents in enumerate(categorized_list)]
+    return [remove_entries_by_category(contents, category_id, faulty_summary_ids) for category_id, contents in enumerate(categorized_list)]
 
