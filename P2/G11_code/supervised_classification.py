@@ -3,11 +3,13 @@ import spacy
 from collections import defaultdict
 import nltk
 from G11_code.helper_functions import sort_by_value, tf_idf_term, log10_tf
+from G11_code.training import split
+from G11_code.indexing import *
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 from tqdm import trange
 import warnings
-
+import pandas as pd
 
 def get_paragraph_features(article_file_path:str, sent_id:int):
     with open(article_file_path, "r", errors="ignore") as f:
@@ -169,3 +171,60 @@ def get_dataframe(docs:list, sent_embeddings:list, doc_embeddings:list,  I:list,
                                named_entity_counts = named_entity_counts)
             data.append(s_features)
     return data
+
+
+
+def construct_df_and_split(doc_ids_by_cat:list, summary_sentence_indices_by_cat:list, sent_embeddings:list, doc_embeddings:list, article_file_paths:list, articles:list, train_size=0.8, k=0.2, b=0.75, p_keywords=10):
+    category_group = zip(doc_ids_by_cat, summary_sentence_indices_by_cat)
+    
+    X_train_ids, y_train_sent_ids, X_test_ids, y_test_sent_ids = list(), list(), list(), list()
+    
+    for doc_ids_by_cat, sentence_indices in category_group: 
+        train_id, test_id, train_sums, test_sums = split(X=doc_ids_by_cat, Y=sentence_indices, train_ratio=train_size)
+        
+        train_doc_sent_indice_pairs = zip(train_id, train_sums)
+        train_sum_sent_ids = list()
+        for train_doc_id, train_sum_sent_indices in train_doc_sent_indice_pairs:
+            for sum_sent_ids in train_sum_sent_indices:
+                train_sum_sent_ids.append([train_doc_id, sum_sent_ids])
+                
+        test_doc_sent_indice_pairs = zip(test_id, test_sums)
+        test_sum_sent_ids = list()
+        for test_doc_id, test_sum_sent_indices in test_doc_sent_indice_pairs:
+            for sum_sent_ids in test_sum_sent_indices:
+                test_sum_sent_ids.append([test_doc_id, sum_sent_ids])
+        
+        X_train_ids.append(train_id)
+        y_train_sent_ids.append(train_sum_sent_ids)
+        X_test_ids.append(test_id)
+        y_test_sent_ids.append(test_sum_sent_ids)
+        
+    X_train_ids = flatten(X_train_ids)
+    y_train_sent_ids = flatten(y_train_sent_ids)
+    X_test_ids = flatten(X_test_ids)
+    y_test_sent_ids = flatten(y_test_sent_ids)
+    
+    train_index = indexing(articles)
+    train_index.recalculate_dfs(X_train_ids)
+    
+    test_index = indexing(articles)
+    test_index.recalculate_dfs(X_test_ids)
+
+    X_train = get_dataframe(docs=X_train_ids, sent_embeddings=sent_embeddings, doc_embeddings=doc_embeddings,  I=train_index, article_file_paths=article_file_paths, articles=articles, k=k, b=b, p_keywords=p_keywords)
+    X_train = pd.DataFrame(X_train)
+    y_train = list()
+    for index, x_train_row in X_train.iterrows():
+        if [x_train_row['document_id'],x_train_row['sent_id']] in y_train_sent_ids:
+            y_train.append(1)
+        else:
+            y_train.append(0)
+        
+    X_test = get_dataframe(docs=X_test_ids, sent_embeddings=sent_embeddings, doc_embeddings=doc_embeddings,  I=test_index, article_file_paths=article_file_paths, articles=articles, k=k, b=b, p_keywords=p_keywords)
+    X_test = pd.DataFrame(X_test)
+    y_test = list()
+    for index, x_test_row in X_test.iterrows():
+        if [x_test_row['document_id'],x_test_row['sent_id']] in y_test_sent_ids:
+            y_test.append(1)
+        else:
+            y_test.append(0)
+    return X_train, y_train, X_test, y_test

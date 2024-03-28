@@ -2,8 +2,11 @@
 from G11_code.data_collection import flatten
 from G11_code.NNModel import NNModel
 from sklearn.decomposition import PCA 
+from sklearn.utils import class_weight
 import xgboost as xgb
 import numpy as np
+import pandas as pd
+import keras 
 
 
 def split_by_cat(sentence_embeddings_by_cat: list, summary_sentence_indices_by_cat: list):
@@ -60,10 +63,21 @@ training(Dtrain,Rtrain,args)
 '''
 def training(Dtrain: list, Rtrain: list, **args):
     model_name =  ('model_name' in args and args['model_name']) or 'XGBoost'
-
-    X_train, Y_train = get_XY(Dtrain, Rtrain)
-    X_train = flatten(X_train)
-    Y_train = flatten(Y_train)
+    use_extracted_features = ('use_extracted_features' in args and args['use_extracted_features']) or False
+    use_val = ('use_val' in args and args['use_val']) or False
+    
+    if use_val:
+        X_val = ('X_val' in args and args['X_val'])
+        y_val = ('y_val' in args and args['y_val'])
+        
+    if use_extracted_features:
+        X_train, Y_train = Dtrain, Rtrain
+    else:
+        X_train, Y_train = get_XY(Dtrain, Rtrain)
+        X_train = flatten(X_train)
+        Y_train = flatten(Y_train)
+        
+    n_components = ('n_components' in args and args['n_components']) or (X_train.shape[1] if (type(X_train)==pd.core.frame.DataFrame) else len(X_train[0]))
 
     if "use_pca" in args: 
         pca = fit_PCA(X_train, n_components=args["n_components"])
@@ -73,15 +87,18 @@ def training(Dtrain: list, Rtrain: list, **args):
         model = xgb.XGBClassifier() 
         model.fit(X_train, Y_train)
     elif model_name == "NN":
-        if 'n_components' in args: 
-            features_length = args['n_components']
-        else: 
-            features_length = len(X_train[0])
+        features_length = n_components
         model = NNModel(features_length)
         model.compile(loss='binary_crossentropy', 
-                 optimizer='adam', 
+                 optimizer=keras.optimizers.Adam(learning_rate=1e-3), 
                  metrics=['AUC'])
-        model.fit(np.array(X_train), np.array(Y_train), epochs=20, verbose=True)
+        if use_val:
+            class_weights = class_weight.compute_class_weight('balanced', classes=np.unique(Y_train), y=Y_train)
+            class_weights = dict(enumerate(class_weights))
+            early_stopping = keras.callbacks.EarlyStopping(monitor='val_loss', patience=15, restore_best_weights=True)
+            model.fit(np.array(X_train), np.array(Y_train), epochs=1500,  class_weight=class_weights, validation_data=(np.array(X_val), np.array(y_val)), callbacks=[early_stopping], verbose=True)
+        else:
+            model.fit(np.array(X_train), np.array(Y_train), epochs=20, verbose=True)
     elif model_name == "LSTM": 
         model = None
     else:
