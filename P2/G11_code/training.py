@@ -114,10 +114,7 @@ def training(Dtrain: list, Rtrain: list, **args):
         model = xgb.XGBClassifier() 
         model.fit(X_train, Y_train)
     elif model_name == "NN":
-        if 'n_components' in args: 
-            feature_length = args['n_components']
-        else: 
-            feature_length = len(X_train[0])
+        feature_length = n_components
         model = NNModel(feature_length)
         model.compile(loss='binary_crossentropy', 
                  optimizer=keras.optimizers.Adam(learning_rate=1e-3), 
@@ -132,10 +129,7 @@ def training(Dtrain: list, Rtrain: list, **args):
             model.summary()
             model.fit(np.array(X_train), np.array(Y_train), epochs=100, verbose=2)
     elif model_name == "LSTM": 
-        if 'n_components' in args: 
-            feature_length = args['n_components']
-        else: 
-            feature_length = len(X_train[0])
+        feature_length = n_components
         model = LSTMModel(128, feature_length)
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=["AUC"])
         #model.build(input_shape=(None, None, feature_length))

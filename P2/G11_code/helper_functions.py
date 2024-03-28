@@ -109,19 +109,19 @@ def generate_doc_ids_cat():
         doc_ids_cat[-1].append(i)
 
     doc_ids_cat.append([])
-    for i in range(510,893):
+    for i in range(510,892):
         doc_ids_cat[-1].append(i)
 
     doc_ids_cat.append([])
-    for i in range(893, 1310):
+    for i in range(892, 1308):
         doc_ids_cat[-1].append(i)
 
     doc_ids_cat.append([])
-    for i in range(1310, 1819):
+    for i in range(1308, 1817):
         doc_ids_cat[-1].append(i)    
 
     doc_ids_cat.append([])
-    for i in range(1819, 2220):
+    for i in range(1817, 2217):
         doc_ids_cat[-1].append(i)
     
     return doc_ids_cat
