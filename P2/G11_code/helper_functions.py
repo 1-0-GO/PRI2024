@@ -125,3 +125,28 @@ def generate_doc_ids_cat():
         doc_ids_cat[-1].append(i)
     
     return doc_ids_cat
+
+
+def select_and_sort(scores: dict, o: str, p: int, l: int, sentence_lengths: list): 
+    # Don't exceed maximum number of sentences. If it doesn't matter it should be set to 0
+    max_elements = p if p else len(scores)
+    sorted_scores = sort_by_value(scores, max_elements=max_elements, reverse=True)
+
+    # Don't exceed maximum number of characters. If it doesn't matter it should be set to 0
+    if l:
+        total_length = 0
+        cropped_sorted_scores = dict()
+        for sent_number, score in sorted_scores.items():
+            sent_length = sentence_lengths[sent_number]
+            total_length += sent_length
+            if total_length > l:
+                break
+            cropped_sorted_scores[sent_number] = score
+        sorted_scores = cropped_sorted_scores
+
+    if o == "rel": 
+        return sorted_scores
+    elif o == "app": 
+        return sort_by_key(sorted_scores)
+    else:
+        return scores

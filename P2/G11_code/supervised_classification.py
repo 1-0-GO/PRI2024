@@ -2,7 +2,7 @@ import numpy as np
 import spacy
 from collections import defaultdict
 import nltk
-from G11_code.helper_functions import sort_by_value, tf_idf_term, log10_tf
+from G11_code.helper_functions import sort_by_value, tf_idf_term, log10_tf, select_and_sort
 from G11_code.training import split
 from G11_code.indexing import *
 from sklearn.metrics.pairwise import cosine_similarity
@@ -228,3 +228,30 @@ def construct_df_and_split(doc_ids_by_cat:list, summary_sentence_indices_by_cat:
         else:
             y_test.append(0)
     return X_train, y_train, X_test, y_test
+
+
+def supervised_summarization(d:int, M, p=7, l=0, **args):
+    
+    o= ('o' in args and args['o']) or "rel"
+    
+    if "new_document" in args:
+        test_index = ('test_index' in args and args['test_index']) or test_index
+        sent_embeddings = ('sent_embeddings' in args and args['sent_embeddings']) or sent_embeddings
+        doc_embeddings = ('doc_embeddings' in args and args['doc_embeddings']) or doc_embeddings
+        article_file_paths = ('article_file_paths' in args and args['article_file_paths']) or article_file_paths
+        articles = ('articles' in args and args['articles']) or articles
+        k = ('k' in args and args['k']) or 0.2
+        b = ('b' in args and args['b']) or 0.75
+        p_keywords = ('p_keywords' in args and args['p_keywords']) or 10
+        frame = get_dataframe(docs=[d], sent_embeddings=sent_embeddings, doc_embeddings=doc_embeddings,  I=test_index, article_file_paths=article_file_paths, articles=articles, k=k, b=b, p_keywords=p_keywords)
+        frame = pd.DataFrame(frame)
+    else:
+        x_test = ('x_test' in args and args['x_test']) or x_test
+        frame = x_test[x_test['document_id']==d]
+        test_index = ('test_index' in args and args['test_index']) or test_index
+    
+    sentence_lengths = test_index.sentence_num_chars[d]
+    
+    scores = {sent_id: M.predict(frame[frame['sent_id']==sent_id]) for sent_id in frame['sent_id']}
+    
+    return select_and_sort(scores=scores, o=o, p=p, l=l, sentence_lengths=sentence_lengths)
