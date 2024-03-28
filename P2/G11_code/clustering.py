@@ -133,7 +133,7 @@ def sentence_clustering(d, metric='precomputed', algorithm='k-medoids', **args):
                                          max_iter=5000)
             clustering_model.fit(dissimilarity_matrix)
             labels = clustering_model.labels_
-            return len(set(labels)), (labels, clustering_model.medoid_indices_)
+            indices = clustering_model.medoid_indices_
         case 'agglomerative':
             evaluate = ('evaluate' in args and args['evaluate']) \
                 or (lambda dm,labs: silhouette_score(dm, labs, metric='precomputed'))
@@ -151,11 +151,12 @@ def sentence_clustering(d, metric='precomputed', algorithm='k-medoids', **args):
                     max_labels = labels
                     max_score = score
             labels = max_labels
-    return len(set(labels)), labels
+            indices = None
+    return len(set(labels)), (labels, indices)
     
 
 '''
-summarization(d,labels,metric,**args)
+summarization(d,labels,metric,remove_outliers, find_subtopics, cluster_centers,**args)
     @input 
     d: array_like or int
         A dissimilarity matrix for a given document if metric=='precomputed', document id otherwise.
@@ -171,7 +172,7 @@ summarization(d,labels,metric,**args)
 
     @output summary (without pre-fixed size limits)
 '''
-def summarization(d, labels, metric='precomputed', **args):
+def summarization(d, labels, metric='precomputed', remove_outliers=True, find_subtopics=True, cluster_centers=None, **args):
     def outlier(c, dM, ul):
         dM = dM.data
         return (len(c) == 1 and np.percentile(dM[c[0]], 25) >= ul)
@@ -189,19 +190,20 @@ def summarization(d, labels, metric='precomputed', **args):
     n_clust, clusters = transform_labels(labels)
     silh_samples = silhouette_samples(dissimilarity_matrix, labels, metric='precomputed')
     # remove outliers
-    ul = np.percentile(dissimilarity_matrix.compressed(), 80)
-    clusters_ = [clust for clust in clusters if not outlier(clust, dissimilarity_matrix, ul)]
-    median_cluster_size = np.median([len(clust) for clust in clusters_])
-    if 'cluster_centers' in args:
-        cluster_centers = args['cluster_centers']
+    if remove_outliers: 
+        ul = np.percentile(dissimilarity_matrix.compressed(), 80)
+        clusters_ = [clust for clust in clusters if not outlier(clust, dissimilarity_matrix, ul)]
     else:
+        clusters_ = clusters
+    median_cluster_size = np.median([len(clust) for clust in clusters_])
+    if not cluster_centers:
         cluster_centers = [clust[np.argmax(silh_samples[clust])] for clust in clusters]
     in_summary = {}
     sort_by_size_silh = lambda silh: lambda cl: sorted(cl, key = lambda tup: (len(tup[0]), np.mean(silh[tup[0]])), reverse=True)
     data = sort_by_size_silh(silh_samples)(zip(clusters_, cluster_centers))
     for i,(clust,center) in enumerate(data):
         clust_size = len(clust)
-        if(clust_size > 5 and clust_size > min(2*median_cluster_size, int(0.75*n_sents)) and min(silh_samples[clust]) < 0.05):
+        if(find_subtopics and clust_size > 5 and clust_size > min(2*median_cluster_size, int(0.75*n_sents)) and min(silh_samples[clust]) < 0.05):
             # Find subtopics
             clustering_model = kmedoids.KMedoids(n_clusters = clust_size//2, method = 'dynmsc')
             subdiss = get_submatrix(diss, [clust], 0, 0)
