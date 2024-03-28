@@ -171,7 +171,7 @@ summarization(d,labels,metric,**args)
 
     @output summary (without pre-fixed size limits)
 '''
-def summarization(d, labels, metric, **args):
+def summarization(d, labels, metric='precomputed', **args):
     def outlier(c, dM, ul):
         dM = dM.data
         return (len(c) == 1 and np.percentile(dM[c[0]], 25) >= ul)
@@ -196,8 +196,8 @@ def summarization(d, labels, metric, **args):
         cluster_centers = args['cluster_centers']
     else:
         cluster_centers = [clust[np.argmax(silh_samples[clust])] for clust in clusters]
-    in_summary = []
-    sort_by_size_silh = lambda silh: lambda cl: sorted(cl, key = lambda tup: (len(tup[0]), np.mean(silh[clust])), reverse=True)
+    in_summary = {}
+    sort_by_size_silh = lambda silh: lambda cl: sorted(cl, key = lambda tup: (len(tup[0]), np.mean(silh[tup[0]])), reverse=True)
     data = sort_by_size_silh(silh_samples)(zip(clusters_, cluster_centers))
     for i,(clust,center) in enumerate(data):
         clust_size = len(clust)
@@ -214,9 +214,9 @@ def summarization(d, labels, metric, **args):
             # subclusters are relative to the indexing in the dM matrix so 0,1,2... but should be using cluster j's points
             mapping = lambda x: [clust[i] for i in x]
             subcenters_ = mapping([subcenter for _,subcenter in subdata])
-            in_summary.extend(subcenters_)
+            in_summary.update({subcnt:clust_size for subcnt in subcenters_})
         else:
-            in_summary.append(center)
+            in_summary[center] = clust_size
     return in_summary
 
 '''

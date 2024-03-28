@@ -35,7 +35,7 @@ def compute_similarities_between_sentences(info: list, N: int, num_sentences: in
     sq_norm_sentence = np.zeros(num_sentences)
     for _, df_t, tf_t_d, tf_per_sentence in info:
         log10_tfs = np.zeros(num_sentences)
-        for sent_number, tf_s_t in tf_per_sentence:
+        for sent_number, tf_s_t, _ in tf_per_sentence:
             log10_tfs[sent_number] = log10_tf(tf_s_t)
         idf_term = np.log10(N/df_t)
         scores_for_term = idf_term * np.outer(log10_tfs, log10_tfs)

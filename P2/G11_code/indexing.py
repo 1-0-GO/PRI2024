@@ -14,9 +14,10 @@ class TermFrequencies:
     def __init__(self) -> None:
         self.tf_d_t = 0
         self.sent_tf = list()
+        self.pos = None
 
-    def add_sentence(self, sent_number, term_frequency):
-        self.sent_tf.append((sent_number, term_frequency))
+    def add_sentence(self, sent_number, term_frequency, pos_occs):
+        self.sent_tf.append((sent_number, term_frequency, pos_occs))
     
     def get_term_frequency(self):
         return self.tf_d_t
@@ -139,8 +140,10 @@ a list of terms and noun phrases appearing in the sentence (with repeated terms)
 '''
 def preprocess(sentence: str, tokenizer: nltk.tokenize.api.TokenizerI, lemmatizer, stop_words=set):
     sent_out = list()
-    tokenized_sentence = tokenizer.tokenize(sentence.lower())
+    tokenized_sentence = tokenizer.tokenize(sentence)
+    pos_tags = nltk.pos_tag(tokenized_sentence)
     for term in tokenized_sentence:
+        term = term.lower()
         lem_term = lemmatizer.lemmatize(term)
         if lem_term not in stop_words:      
             sent_out.append(lem_term)
@@ -149,7 +152,7 @@ def preprocess(sentence: str, tokenizer: nltk.tokenize.api.TokenizerI, lemmatize
     # only include those that have multiple words
     noun_phrases = [n_p for n_p in all_noun_phrases if ' ' in n_p]
     sent_out.extend(noun_phrases)
-    return len(sentence), len(tokenized_sentence), sent_out
+    return len(sentence), len(tokenized_sentence), pos_tags, sent_out
 
 '''
 indexing(D,args)
@@ -177,17 +180,24 @@ def indexing(articles, **args) -> InvertedIndex:
         # remove title (not needed for summarization task)
         #sents = sents[1:]
         preprocessing_results = [preprocess(sent, tokenizer, wnl, stop_words) for sent in sents]
-        sent_num_chars, sent_term_counts, preprocessed_sentences = zip(*preprocessing_results)
+        sent_num_chars, sent_term_counts, pos_tags, preprocessed_sentences = zip(*preprocessing_results)
         inverted_index.sentence_num_chars.append(list(sent_num_chars))
         inverted_index.num_terms_in_sentences.append(list(sent_term_counts))
         # count the term frequencies per sentence
         term_counter_per_sent = [Counter(sentence_terms) for sentence_terms in preprocessed_sentences]
         for sent_number, term_counter in enumerate(term_counter_per_sent):
-            for term in term_counter: 
+            sent_pos_tags = pos_tags[sent_number]
+            count_pos = Counter(sent_pos_tags)
+            pos_occurrences = defaultdict(list)
+            for ((term,pos), count) in count_pos.items():
+                pos_occurrences[term].append((pos, count))
+            for term in term_counter:
                 tf = term_counter[term]
+                # if term was not pos tagged it means it's a noun phrase
+                pos_occs = (term in pos_occurrences and pos_occurrences[term]) or [('NN', tf)]
                 term_document_tfs = inverted_index.get_or_default(term, article_id)
                 term_document_tfs.tf_d_t += tf 
-                term_document_tfs.add_sentence(sent_number, tf)
+                term_document_tfs.add_sentence(sent_number, tf, pos_occs)
                 inverted_index.update(term, article_id, term_document_tfs)
     inverted_index.calculate_dfs()
     end_time = time.time()
