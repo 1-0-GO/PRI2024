@@ -256,12 +256,12 @@ def supervised_summarization(d:int, M, p=7, l=0, **args):
         frame = get_dataframe(docs=[d], sent_embeddings=sent_embeddings, doc_embeddings=doc_embeddings,  I=test_index, article_file_paths=article_file_paths, articles=articles, k=k, b=b, p_keywords=p_keywords)
         frame = pd.DataFrame(frame)
     else:
-        x_test = ('x_test' in args and args['x_test']) or x_test
+        x_test = ('x_test' in args and args['x_test']) 
         frame = x_test[x_test['document_id']==d]
-        test_index = ('test_index' in args and args['test_index']) or test_index
+        I = ('I' in args and args['I']) or I
     
-    sentence_lengths = test_index.sentence_num_chars[d]
+    sentence_lengths = I.sentence_num_chars[d]
     
-    scores = {sent_id: M.predict(frame[frame['sent_id']==sent_id]) for sent_id in frame['sent_id']}
+    scores = {sent_id: M.predict(frame[frame['sent_id']==sent_id])[0] for sent_id in frame['sent_id']}
     
     return select_and_sort(scores=scores, o=o, p=p, l=l, sentence_lengths=sentence_lengths)

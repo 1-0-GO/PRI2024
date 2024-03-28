@@ -89,13 +89,13 @@ def training(Dtrain: list, Rtrain: list, **args):
         X_train, Y_train = Dtrain, Rtrain
     else:
         X_train, Y_train = get_XY(Dtrain, Rtrain)
-        X_train = flatten(X_train)
-        Y_train = flatten(Y_train)
+
         
     n_components = ('n_components' in args and args['n_components']) or (X_train.shape[1] if (type(X_train)==pd.core.frame.DataFrame) else len(X_train[0]))
 
-    X_train, Y_train = get_XY(Dtrain, Rtrain)
-    if model_name != "LSTM": 
+    if (model_name != "LSTM") and (not use_extracted_features): 
+        X_train = flatten(X_train)
+        Y_train = flatten(Y_train)
         X_train = flatten(X_train)
         Y_train = flatten(Y_train)
 
