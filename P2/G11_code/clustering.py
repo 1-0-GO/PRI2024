@@ -158,6 +158,8 @@ def sentence_clustering(d, metric='precomputed', algorithm='k-medoids', **args):
                 labels[argmin//len(diss)] = 2
                 labels[argmin%len(diss)] = 2
             indices = None
+        case _:
+            raise ValueError(f'Invalid algorithm: {algorithm}. Choose either k-medoids or agglomerative.')
     return len(set(labels)), (labels, indices)
     
 
@@ -236,5 +238,23 @@ keyword_extraction(d,C,I,args)
 
     @output set of keywords (without pre-fixed cardinality)
 '''
-def keyword_extraction(d, C, I, **args):
-    pass
+def keyword_extraction(d:int, labels:list, I:InvertedIndex, **args):
+    allowed_pos = set(('JJ', 'JJR', 'JJS', 'NN', 'NNP', 'NNPS', 'NNS','RBS'))
+    n_clust, clusters = transform_labels(labels)
+    doc_info = I.get_document_info(d)
+    vocab = doc_info['Vocabulary']
+    term_doc_info = list(zip(*doc_info.values()))
+    sents_by_terms = np.zeros((len(labels), len(vocab)))
+    for i, (term, df_t, tf_t_d, tf_per_sentence) in enumerate(term_doc_info):
+        for sent_num, tf_s_t, pos_count in tf_per_sentence:
+            for pos, count in pos_count:
+                if pos in allowed_pos:
+                    sents_by_terms[sent_num, i] += count
+    keywords = []
+    for clust in clusters:
+        cluster_term_counts = np.sum(sents_by_terms[clust], axis=0)
+        freq_terms = np.where(cluster_term_counts==np.max(cluster_term_counts))[0]
+        keywords.append(vocab[freq_terms[0]])
+        if len(freq_terms) > 1:
+            keywords.append(vocab[freq_terms[-1]])
+    return keywords
