@@ -22,17 +22,24 @@ def split_by_cat(sentence_embeddings_by_cat: list, summary_sentence_indices_by_c
 
     train_doc_indices = list()
     test_doc_indices = list()
-
+    offset = 0
     for sentence_embeddings, sentence_indices in category_group: 
         train_emb, test_emb, train_ind, test_ind = split(sentence_embeddings, sentence_indices, 0.8)
         # indices 
-        t1, t2 = split(range(len()))
+        train_doc_i, test_doc_i, _, _ = split(range(len(sentence_embeddings)), range(len(sentence_indices)), 0.8)
+        train_doc_i = [i + offset for i in train_doc_i]
+        test_doc_i = [i + offset for i in test_doc_i]
+        offset += (len(sentence_embeddings) - 1)
+
+        train_doc_indices.extend(train_doc_i)
+        test_doc_indices.extend(test_doc_i)
+
         train_emb_by_cat.append(train_emb)
         train_ind_by_cat.append(train_ind)
         test_emb_by_cat.append(test_emb)
         test_ind_by_cat.append(test_ind)
 
-    return train_emb_by_cat, test_emb_by_cat, train_ind_by_cat, test_ind_by_cat 
+    return train_emb_by_cat, test_emb_by_cat, train_ind_by_cat, test_ind_by_cat, train_doc_indices, test_doc_indices
 
 
 def get_XY(sentence_embeddings_by_cat: list, summary_sentence_indices_by_cat: list): 
