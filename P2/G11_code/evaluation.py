@@ -133,26 +133,40 @@ def supervised_evaluation(Dtest: list, Rtest:list, model, **args):
     model_name =  ('model_name' in args and args['model_name']) or 'XGBoost'
 
     X_test, Y_test = get_XY(Dtest, Rtest)
-    X_test = flatten(X_test)
-    Y_test = flatten(Y_test)
+    if model_name != "LSTM": 
+        X_test = flatten(X_test)
+        Y_test = flatten(Y_test)
 
-    if 'use_pca' in args: 
+    if 'use_pca' in args:
         pca = fit_PCA(args['X_train'], n_components=args["n_components"])
-        X_test = transform_PCA(pca, X_test)
+        if model_name == "LSTM": 
+            X_test = [transform_PCA(pca, x) for x in X_test]
+        else: 
+            X_test = transform_PCA(pca, X_test)
+    elif "use_umap" in args: 
+        reducer = args["reducer"]
+        X_test = transform_UMAP(reducer, X_test)
 
     if model_name == "XGBoost": 
         predictions = model.predict(X_test)
     elif model_name == "NN": 
         predictions = np.round(model.predict(np.array(X_test))).astype(int)
     elif model_name == "LSTM": 
-        model = None
+        predictions = list()
+        Y_test = np.array(flatten(Y_test))
+        for X, y in zip(X_test, Y_test): 
+            X = np.array(X)
+            X = np.expand_dims(X, axis=0)
+            y = np.array(y)
+            pred = model.predict(X, verbose=0)
+            pred = np.round(pred.squeeze()).astype(int)
+            predictions.extend(pred)
     else:
-        raise ValueError("Currently we only support the following models for summarization:\n→ XGBoost\n→ BM-25\n→ LSTM")
-    
+        raise ValueError("Currently we only support the following models for summarization:\n→ XGBoost\n→ NN\n→ LSTM")
     
     precision = sklearn.metrics.precision_score(Y_test, predictions)
     recall = sklearn.metrics.recall_score(Y_test, predictions)
-    fpr, tpr, thresholds = sklearn.metrics.roc_curve(Y_test, predictions)  
+    fpr, tpr, _ = sklearn.metrics.roc_curve(Y_test, predictions)  
     auc = sklearn.metrics.auc(fpr, tpr)
 
     return precision, recall, auc
