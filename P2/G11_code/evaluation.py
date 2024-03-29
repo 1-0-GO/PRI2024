@@ -43,12 +43,12 @@ def plot_f1_per_category(f1_per_category, std_per_category, category_names, titl
     plt.errorbar(x, f1_per_category, std_per_category, fmt='.', color='Black', elinewidth=2,capthick=10,errorevery=1, alpha=0.5, ms=4, capsize = 2)
     plt.xlabel("Category")
     plt.ylabel("F1 Score")
-    plt.ylim(0, 0.65)
+    plt.ylim(0, 1.0)
     plt.title(title)
     plt.show()
 
 def get_precision_recall_curve_data(extracted_indices, relevant_indices):
-    extracted_indices = list(extracted_indices.keys())
+    extracted_indices = extracted_indices
     extracted_indices = list(map(int, extracted_indices))
     relevant_indices = set(relevant_indices)
     precision_level = list()
@@ -93,8 +93,7 @@ def evaluation(S: list, R: list, **args) -> list:
             recalls.append([])
             f1_scores.append([])
             for extracted_indices_rel, relevant_indices in zip(category_extracted_indices_rel, category_relevant_indices):
-                extracted_indices = list(extracted_indices_rel.keys())
-                extracted_indices = list(map(int, extracted_indices))
+                extracted_indices = list(map(int, extracted_indices_rel))
                 extracted_indices = extracted_indices[:args["p"]]
                 precisions[-1].append(get_precision(extracted_indices, relevant_indices))
                 recalls[-1].append(get_recall(extracted_indices, relevant_indices))
@@ -131,9 +130,13 @@ supervised evaluation(Dtest,Rtest,M ,args)
 '''
 def supervised_evaluation(Dtest: list, Rtest:list, model, **args):
     model_name =  ('model_name' in args and args['model_name']) or 'XGBoost'
-
-    X_test, Y_test = get_XY(Dtest, Rtest)
-    if model_name != "LSTM": 
+    
+    if "use_embeddings" in args:
+        X_test, Y_test = get_XY(Dtest, Rtest)
+    else:
+        X_test, Y_test = Dtest, Rtest
+        
+    if model_name != "LSTM" and not (type(X_test)==pd.core.frame.DataFrame): 
         X_test = flatten(X_test)
         Y_test = flatten(Y_test)
 
@@ -154,7 +157,7 @@ def supervised_evaluation(Dtest: list, Rtest:list, model, **args):
     elif model_name == "LSTM": 
         predictions = list()
         Y_test = np.array(flatten(Y_test))
-        for X in X_test: 
+        for X in X_test:
             X = np.array(X)
             X = np.expand_dims(X, axis=0)
             pred = model.predict(X, verbose=0)
@@ -169,5 +172,4 @@ def supervised_evaluation(Dtest: list, Rtest:list, model, **args):
     auc = sklearn.metrics.auc(fpr, tpr)
 
     return precision, recall, auc
-
 
